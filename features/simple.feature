@@ -1,25 +1,20 @@
 Feature: Syntax parsing
 
-  Background:
-    Given a file "code.self" with
+  @wip
+  Scenario:
+    Given I append to "code.self":
       """
       string:
         (|
           println =
           (
-            "Invoke the builtin $external slot which invoke the puts function
-             with the parameter $content: 1 which is i8*. $content: 0 is the
+            "Invoke the builtin :$external slot which invoke the puts function
+             with the parameter :$content: 1 which is i8*. :$content: 0 is the
              string length"
-            $external: 'puts' With: $content: 1.
-          )
+            :$external: 'puts' With: (:$content: 1).
+          ).
         |).
         
-      """
-
-  @wip
-  Scenario:
-    Given I append to "code.self":
-      """
       (
         'Hello World' println
       )
@@ -35,6 +30,17 @@ Feature: Syntax parsing
   Scenario:
     Given I append to "code.self":
       """
+      string:
+        (|
+          println =
+          (
+            "Invoke the builtin :$external slot which invoke the puts function
+             with the parameter :$content: 1 which is i8*. :$content: 0 is the
+             string length"
+            :$external: 'puts' With: (:$content: 1).
+          ).
+        |).
+        
       ( | hello = 'hello world' |
         hello println
       )
@@ -50,6 +56,17 @@ Feature: Syntax parsing
   Scenario:
     Given I append to "code.self":
       """
+      string:
+        (|
+          println =
+          (
+            "Invoke the builtin :$external slot which invoke the puts function
+             with the parameter :$content: 1 which is i8*. :$content: 0 is the
+             string length"
+            :$external: 'puts' With: (:$content: 1).
+          ).
+        |).
+        
       ( |
           main = ( 'Doing' println )
         |

@@ -12,3 +12,5 @@ method = method.to_sym unless method.nil?
 method = :help if method.nil? or not compiler.respond_to? method
 
 compiler.send(method, *ARGV)
+
+exit 0

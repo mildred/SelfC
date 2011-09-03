@@ -1,4 +1,6 @@
 require 'common'
+require 'objects'
+require 'expr'
 
 class Self::Parser
 
@@ -23,11 +25,15 @@ class Self::Parser
   def read_always(str)
     @code[@index, str.length].should == str
     @index += str.length
+    warn "read '#{str}'"
+  rescue
+    warn "Should have #{str}, got #{@code[@index, str.length]}"
   end
   
   def read_maybe(str)
     if @code[@index, str.length] == str
       @index += str.length
+      warn "read '#{str}'"
       true
     else
       false
@@ -42,15 +48,15 @@ class Self::Parser
   end
   
   def read_spaces
-    read_pattern /\A(\s|"[^"]*")*/
+    read_pattern /\A(\s|"[^"]*")+/
   end
   
   def read_identifier
-    read_pattern /\A[a-z_][a-zA-Z0-9_]*/
+    read_pattern /\A(:\$)?[a-z_][a-zA-Z0-9_]*(?![:a-zA-Z0-9_])/
   end
   
   def read_small_keyword
-    read_pattern /\A[a-z_][a-zA-Z0-9_]*:/
+    read_pattern /\A(:\$)?[a-z_][a-zA-Z0-9_]*:/
   end
   
   def read_cap_keyword
@@ -58,7 +64,7 @@ class Self::Parser
   end
   
   def read_argument_name
-    read_pattern /\A:[a-z_][a-zA-Z0-9_]*/
+    read_pattern /\A:[a-z_][a-zA-Z0-9_]*(?![:a-zA-Z0-9_])/
   end
   
   def read_operator(op=nil)
@@ -67,16 +73,17 @@ class Self::Parser
       read_pattern /\A[#{chars}]+/
     else
       op = Regexp.escape op
-      read_pattern /\A#{op}[^#{chars}]+/
+      read_pattern /\A#{op}(?![#{chars}])/
     end
   end
   
   def read_number
-    read_integer
+    i = read_integer
+    return Self::Integer.new(i) unless i.nil?
   end
   
   def read_integer
-    num = read_pattern /\A-?([0-9]+[Rr])[0-9][0-9a-zA-Z]*?/
+    num = read_pattern /\A-?[0-9]+/
     num = num.to_i unless num.nil?
     num
   end
@@ -85,33 +92,48 @@ class Self::Parser
     read_pattern /\A'([^\\']|\\[tbnfrva0\\'"\?]|\\x[0-9a-fA-F][0-9a-fA-F]|\\[do][0-9][0-9][0-9])*'/
   end
   
+  def read_constant
+    c = read_number
+    return c unless c.nil?
+    c = read_string
+    return Self::String.new(c) unless c.nil?
+    read_object
+  end
+  
   def read_expr
     read_keyword_msg
   end
   
-  def read_unary_msg
-    receiver = read_constant
+  def read_unary_msg(receiver=nil)
+    receiver = read_constant if receiver.nil? # maybe
+    read_spaces
     idf = read_identifier
+    msg = receiver
     while not idf.nil?
+      msg = Self::MessageBinary.new(msg, idf)
       read_spaces
       idf = read_identifier
     end
+    msg
   end
   
-  def read_binary_msg
-    receiver = read_unary_msg # maybe
+  def read_binary_msg(receiver=nil)
+    receiver = read_unary_msg if receiver.nil? # maybe
     op = read_operator
     if op.nil?
-      read_unary_msg
+      receiver
     else
+      msg = Self::MessageBinary.new(receiver, op)
       read_spaces
-      read_expr
+      msg.args << read_unary_msg
       read_spaces
       while read_operator op
+        msg = Self::MessageBinary.new(msg, op)
         read_spaces
-        read_expr
+        msg.args << read_unary_msg
         read_spaces
       end
+      msg
     end
   end
   
@@ -119,31 +141,27 @@ class Self::Parser
     receiver = read_binary_msg # maybe
     key = read_small_keyword
     if key.nil?
-      read_binary_msg
+      read_binary_msg(receiver)
     else
+      msg = receiver
       while not key.nil?
+        msg = Self::MessageKeyword.new(msg, key)
         read_spaces
-        read_expr
+        msg.args << read_binary_msg
         read_spaces
-        key = read_cap_keyword
+        cap = read_cap_keyword
         while not cap.nil?
+          msg.name += cap
           read_spaces
-          read_expr
+          msg.args << read_binary_msg
           read_spaces
-          key = read_cap_keyword
+          cap = read_cap_keyword
         end
         read_spaces
         key = read_small_keyword
       end
+      msg
     end
-  end
-  
-  def read_constant
-    c = read_number
-    return c unless c.nil?
-    c = read_string
-    return c unless c.nil?
-    read_object
   end
   
   def read_object
@@ -153,30 +171,29 @@ class Self::Parser
   
   def read_regular_object
     return nil unless read_maybe "("
+    object = Self::Object.new
     read_spaces
-    if char == "|"
-      read
+    if read_maybe "|"
       read_spaces
       read_slot_list
       read_spaces
       read_always "|"
       read_spaces
     end
-    read_code
+    read_code(object)
     read_always ")"
+    return object
   end
   
   def read_slot_list
     s = read_slot
     while not s.nil?
       read_spaces
-      break unless char == '.'
-      read.should == '.'
+      break unless read_maybe '.'
       read_spaces
       s = read_slot
     end
-    if char == '.'
-      read
+    if read_maybe '.'
       read_spaces
     end
   end
@@ -192,7 +209,8 @@ class Self::Parser
   end
   
   def read_arg_slot
-    read_argument_name
+    arg = read_argument_name
+    return nil if arg.nil?
     read_spaces
   end
   
@@ -200,7 +218,7 @@ class Self::Parser
     idf = read_identifier
     return nil if idf.nil?
     read_spaces
-    read if char == '*'
+    read_maybe '*'
     read_spaces
     if read_operator "<-"
       read_spaces
@@ -244,26 +262,35 @@ class Self::Parser
     read_spaces
   end
   
-  def read_code
-    read_expr
+  def read_code(obj)
+    e = read_expr
+    obj.expressions << e unless e.nil?
     read_spaces
     while read_maybe '.'
       read_spaces
-      read_expr
+      e = read_expr
+      break if e.nil?
+      obj.expressions << e
       read_spaces
     end
-    read_operator "^" # maybe
-    read_spaces
-    read_expr
-    read_spaces
-    read_maybe "."
-    read_spaces
+    ret = read_operator "^"
+    unless ret.nil?
+      read_spaces
+      e = read_expr
+      obj.expressions << e
+      obj.return_expression = e
+      read_spaces
+      read_maybe "."
+      read_spaces
+    end
   end
   
   def parse
+    object = Self::Object.new
     read_pattern /\A\#![^\n]\n/ # shebang
     read_spaces
-    read_expr
+    read_code object
+    object
   end
 
 end

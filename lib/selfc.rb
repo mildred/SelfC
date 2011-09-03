@@ -1,3 +1,4 @@
+require 'common'
 require 'parser'
 
 class Self::SelfC

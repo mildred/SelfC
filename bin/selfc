@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+
+$LOAD_PATH << File.join(File.dirname(File.dirname(__FILE__)), "lib")
+require 'selfc'
+
+include Self
+
+compiler = SelfC.new
+
+method = ARGV.shift
+method = method.to_sym unless method.nil?
+method = :help if method.nil? or not compiler.respond_to? method
+
+compiler.send(method, *ARGV)

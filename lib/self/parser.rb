@@ -1,6 +1,6 @@
-require 'common'
-require 'objects'
-require 'expr'
+require 'self/common'
+require 'self/objects'
+require 'self/expr'
 
 class Self::Parser
 

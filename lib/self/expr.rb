@@ -1,4 +1,4 @@
-require 'common'
+require 'self/common'
 
 class Self::Expr
 end

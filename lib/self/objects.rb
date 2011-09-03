@@ -1,5 +1,5 @@
-require 'common'
-require 'expr'
+require 'self/common'
+require 'self/expr'
 
 class Self::Slot
   attr_reader :name
@@ -14,6 +14,16 @@ class Self::Object < Self::Expr
   def initialize
     @slots = []
     @expressions = []
+  end
+  
+  def generate(g)
+    init = g.function do
+      # ...
+    end
+    f = g.function do
+      # ...
+    end
+    g.init init
   end
   
 end

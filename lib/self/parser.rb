@@ -287,6 +287,7 @@ class Self::Parser
   
   def parse
     object = Self::Object.new
+    object.lobby = true
     read_pattern /\A\#![^\n]\n/ # shebang
     read_spaces
     read_code object

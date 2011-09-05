@@ -31,9 +31,18 @@ class Self::Object < Self::Expr
       end
       g2.sub_message do
         if @lobby
-          a = g2.icmp :eq, g2.arg_mode, 0
+          a = g2.icmp :eq, g2.arg_mode, g.cst_string_length
           g2.condition a do |g3|
             g3.if_true do
+              # "string:"
+              a = g2.call g.cst_memcmp, g.cst_string, g2.arg_slotname, g2.arg_mode
+              a = g2.icmp :eq, a, 0
+              g2.condition a do |g4|
+                g4.if_true do
+                end
+                g4.if_false do
+                end
+              end
             end
             g3.if_false do
             end

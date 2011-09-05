@@ -10,6 +10,10 @@ class Self::Generator
     @code << "%self.call   = type void (%self.object, i32) * \n"
     @code << "%self.object = type { %self.call } *\n"
     @code << "\n"
+    @code << "@self.cst.string = private unnamed_addr constant [8 x i8] c\"string:\\00\"\n"
+    @code << "\n"
+    @code << "declare i32 @memcmp(i8*, i8*, i32)\n"
+    @code << "\n"
     blc.call self
     unless @initializers.empty?
       @code << "@llvm.global_ctors = appending global [#{@initializers.length} x { i32, void ()* }] ["
@@ -23,6 +27,14 @@ class Self::Generator
     @code << "  ret i32 0\n"
     @code << "}\n\n"
     @code
+  end
+  
+  def cst_string
+    gid :symbol => "self.cst.string", :type => "[8 x i8]*"
+  end
+  
+  def cst_string_length
+    7
   end
   
   def global
